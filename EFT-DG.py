@@ -8,33 +8,6 @@ import configparser as ConfigParser
 config = ConfigParser.ConfigParser()
 power=0
 Set2K=[int(2560*0.014),int(1440*0.02),int(2560*0.048),int(1440*0.2)]
-####Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting####
-with open('readme.txt', 'w') as rdm: 
-     rdm.write("#####################################\n")
-     rdm.write("本项目目前只支持2560x1440分辨率显示器\n")
-     rdm.write("开启N卡或其他游戏滤镜可能导致识别不准 请到config.ini中手动修改识别参数\n")
-     rdm.write("使用DG-LAB3.0APP WSsocket连接\n")
-     rdm.write("需在塔科夫游戏内设置 健康状态持续显示 为彩色\n")
-     rdm.write("郊狼连接A通道 \n")
-     rdm.write("上面一排按钮 开启波形输出 下面一排按钮关闭波形输出\n")
-     rdm.write("#####################################\n")
-     rdm.write("设置解释：\n")
-     rdm.write("LocalIP:本机在局域网内的ip\n")
-     rdm.write("Ratelimit:识别计算频率限制(S)\n")
-     rdm.write("HPlow/high:low为强度最大时的血量值,high为开始通电时的血量值\n")
-     rdm.write("LocalIP:本机在局域网内的ip\n")
-     rdm.write("LocalIP:本机在局域网内的ip\n")
-     rdm.write("powerlimit 强度上限(需将手机端的 '最低强度上限' 设置为与该值相同 或设置为200-200)\n")
-     rdm.write("BagColorMin/Max: 背包采样点颜色范围\n")
-     rdm.write("RoleHmax: 彩色小人识别色相最大值\n")
-     rdm.write("RoleSmin/max: 彩色小人识别饱和度范围\n")
-     rdm.write("roleVmin/max:彩色小人识别灰度范围\n")
-     rdm.write("temprate:强度变化缓冲率\n")
-     rdm.write("#####################################\n")
-     rdm.write("Bilibili: 是扒一扒喵\n")
-     rdm.write("QQ:2889613770\n")
-     rdm.write("#####################################\n")
-
 ScreenSet=Set2K
 def first(config):
     global LocalIP
@@ -65,13 +38,10 @@ def first(config):
     HPlow =config.getfloat(section="Basic",option="HPlow")
     HPhigh =config.getfloat(section="Basic",option="HPhigh")
     Wave = eval(config.get(section="Wave",option="wave"))
-    
-     
-
 config.read('config.ini')
 
 if(config.sections()==[]):
-    config['Basic'] = { 'LocalIP': '192.168.101.66', 'PowerLimit': 60, 'Ratelimit': 0.2 ,'HPlow':100, 'HPhigh':435} 
+    config['Basic'] = { 'LocalIP': '192.168.101.66', 'PowerLimit': 60, 'Ratelimit': 0.3 ,'HPlow':100, 'HPhigh':435} 
     config['Advanced'] = { 'BagColorMin': [39,49,66] , 'BagColorMax': [43,53,70] ,"RoleHmax":130,'RoleHmin':0,'RoleSmin':0.4,'RoleVMax':0.6,'RoleVMin':0.2,'tempRate':0.3 } 
     config['Wave'] ={'wave': [
         ((11, 11, 11, 11), (100, 100, 100, 100)), ((11, 11, 11, 11), (20, 20, 20, 20)),((11, 11, 11, 11), (100, 100, 100, 100)),((11, 11, 11, 11), (100, 100, 100, 100)), ((11, 11, 11, 11), (40, 40,40, 40)), ((11, 11, 11, 11), (95, 95,95, 95)), ((11, 11, 11, 11), (100, 100,100, 100)), ((20, 20, 20, 20), (50, 50,50, 50)),
@@ -92,7 +62,6 @@ print("LocalIP=",LocalIP)
 
 
 
-####Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting####
 n_ar=np.array([0,0,0])
 arrrr=np.array([])
 pointsnum=ScreenSet[2]*ScreenSet[3]
@@ -142,12 +111,12 @@ gamestate2="other"
 client = None
    
 async def send():
-    try:####Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting####
+    try:
         try:
             global client
             global Ratelimit
             time.sleep(Ratelimit)
-            global PowerLimit #强度上限 需与APP的最低上限一致
+            global PowerLimit
             global BagColorMin
             global BagColorMax
             global RoleHmax
@@ -166,25 +135,18 @@ async def send():
             global HPhigh
             i =pyautogui.screenshot(region=ScreenSet)
             i_ar=np.array(i)
-            #应用蒙版
             points= np.delete(i_ar.reshape([-1,3]),Li,axis=0)
-            #取样7像素点
             Cw=[0.0795,0.1931,0.1363,0.1363,0.1591,0.1477,0.1477]
-            #按血量加权
+
             Rgb=np.average(points,axis=0,weights=Cw)
-            #平均 得到整体平均颜色
 
             
             hss=rgb2hsv(Rgb[0],Rgb[1],Rgb[2])
-            #rgb2hsv
             x1=(hss[0]/360)*(hss[1]*hss[2])
-            #将h s v关联到一起作为x代入回归方程
-            if ((RoleHmin<=np.array(hss)[0]<RoleHmax)and(np.array(hss)[1]>=RoleSmin) and (RoleVMin<np.array(hss)[2]<RoleVMax)): #检测小绿人
+            if ((RoleHmin<=np.array(hss)[0]<RoleHmax)and(np.array(hss)[1]>=RoleSmin) and (RoleVMin<np.array(hss)[2]<RoleVMax)): 
                 ps=(258597.6*(x1*x1*x1)-75978.385*(x1*x1)+9241.92*x1+0.05899)+7
-                #将X代入经验回归求人物血量
                 hp=(ps*tempRate+temp*(1-tempRate))
                 temp=hp
-                #缓冲
                 if hp>=HPhigh:
                         lg=0
                         
@@ -231,8 +193,6 @@ async def send():
                     await client.set_strength(Channel.A,StrengthOperationType.SET_TO,int(0))
         except all as ww:
              print(ww)
-
-            ####Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting########Setting####
         try:
     
             
@@ -241,25 +201,24 @@ async def send():
             lg=0
             i =pyautogui.screenshot(region=ScreenSet)
             i_ar=np.array(i)
-            #应用蒙版
+  
             points= np.delete(i_ar.reshape([-1,3]),Li,axis=0)
-            #取样7像素点
+  
             Cw=[0.0795,0.1931,0.1363,0.1363,0.1591,0.1477,0.1477]
-            #按血量加权
+
             Rgb=np.average(points,axis=0,weights=Cw)
-            #平均 得到整体平均颜色
+
 
             
             hss=rgb2hsv(Rgb[0],Rgb[1],Rgb[2])
-            #rgb2hsv
+
             x1=(hss[0]/360)*(hss[1]*hss[2])
-            #将h s v关联到一起作为x代入回归方程
             if ((RoleHmin<=np.array(hss)[0]<RoleHmax)and(np.array(hss)[1]>=RoleSmin) and (RoleVMin<np.array(hss)[2]<RoleVMax)): #检测小绿人
                 ps=(258597.6*(x1*x1*x1)-75978.385*(x1*x1)+9241.92*x1+0.05899)+7
-                #将X代入经验回归求人物血量
+            
                 hp=(ps*tempRate+temp*(1-tempRate))
                 temp=hp
-                #缓冲
+          
                 if hp>=430:
                         lg=0
                         
@@ -328,7 +287,7 @@ async def main():
         url = client.get_qrcode("ws://"+LocalIP+":5679")
         print("Scan the QRCODE with DG-Lab App")
         print_qrcode(url)
-        # 等待绑定
+   
         
         await client.bind()
         pulse_data_iterator = iter(PULSE_DATA.values())
@@ -348,8 +307,8 @@ async def main():
                     
             try:
                 await send()
-                pulse_data_current = next(pulse_data_iterator, None)    # 当前准备发送的波形
-                # 如果波形都发送过了，则开始新一轮的发送
+                pulse_data_current = next(pulse_data_iterator, None)   
+       
                 if(Enable==1):
                     if not pulse_data_current:
                         pulse_data_iterator = iter(PULSE_DATA.values())
@@ -369,7 +328,6 @@ if __name__ == "__main__":
     
     
     
-
 
 
 
