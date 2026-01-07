@@ -4,6 +4,8 @@ import asyncio
 import pyautogui
 import numpy as np
 import time
+import socket
+import psutil
 import configparser as ConfigParser
 config = ConfigParser.ConfigParser()
 power=0
@@ -305,58 +307,76 @@ async def send():
    
 Enable = 0
 async def main():
+    global LocalIP
     if(LocalIP=="111.111.111.111"):
-         while True:
-            time.sleep(1)
-            print("请到config文件里修改本机IP(LOCALIP)及强度上限(POWERLIMIT) #####此处强度上限需低于手机端最低强度上限")
+        print("==========================")
+        # 获取Windows网卡地址及IPV4地址列表
+        addrs = psutil.net_if_addrs()
+        candidates = []
+        for iface_name, iface_addrs in addrs.items():
+            for addr in iface_addrs:
+                if addr.family == socket.AF_INET:
+                    ip_str = addr.address
+                    # 排除掉本地环回地址
+                    if ip_str.startswith("127.") or ip_str.startswith("169.254"):
+                        continue
+                    candidates.append((iface_name, ip_str))
+        if not candidates:
+            print("未找到有效的局域网IP地址。请手动到config文件里修改本机IP(LOCALIP)及强度上限(POWERLIMIT)")
+            input("按回车键关闭程序")
+        else:
+            print("检测到以下网卡地址及IP：")
+            for idx, (iface, ip) in enumerate(candidates):
+                print(f"{idx+1}. {iface}: {ip}")
+            print("==========================")
+            while LocalIP == "111.111.111.111":
+                selection = input("请输入对应网卡前的数字进行选择, 或输入q退出: ")
+                if selection.lower() == 'q':
+                    exit(0)
+                if selection.isdigit() and 1 <= int(selection) <= len(candidates):
+                    chosen_ip = candidates[int(selection)-1][1]
+                    LocalIP = chosen_ip
+                    print(f"已经临时修改LOCALIP为: {chosen_ip}")
+                else:
+                    print("无效输入，请重新输入对应的数字。")
             
-    else:
+    async with DGLabWSServer("0.0.0.0", 5678, 60) as server:
+        global client
+        global Enable
+        client = server.new_local_client()
         
-        async with DGLabWSServer("0.0.0.0", 5678, 60) as server:
-            global client
-            global Enable
-            client = server.new_local_client()
-            
-                    
+        url = client.get_qrcode("ws://"+LocalIP+":5678")
+        print("Scan the QRCODE with DG-Lab App")
+        print_qrcode(url)
+
+        
+        await client.bind()
+        pulse_data_iterator = iter(PULSE_DATA.values())
+        
+        print(f"Binded with APP {client.target_id}")
+
+        async for data in client.data_generator():      
+            if isinstance(data, FeedbackButton):    
+                if data == FeedbackButton.A1 or data == FeedbackButton.A2 or data == FeedbackButton.A3 or data == FeedbackButton.A4 or data == FeedbackButton.A5:
+                    print("Wave Out Enabled")
+                    Enable=1
+                if data == FeedbackButton.B1 or data == FeedbackButton.B2 or data == FeedbackButton.B3 or data == FeedbackButton.B4 or data == FeedbackButton.B5:
+                    print("Wave Out Disabled")
+                    Enable=0
+            try:
                 
-
-            url = client.get_qrcode("ws://"+LocalIP+":5678")
-            print("Scan the QRCODE with DG-Lab App")
-            print_qrcode(url)
-    
-            
-            await client.bind()
-            pulse_data_iterator = iter(PULSE_DATA.values())
-            
-            print(f"Binded with APP {client.target_id}")
-
-            async for data in client.data_generator():      
-                if isinstance(data, FeedbackButton):    
-                    
-
-                    if data == FeedbackButton.A1 or data == FeedbackButton.A2 or data == FeedbackButton.A3 or data == FeedbackButton.A4 or data == FeedbackButton.A5:
-                        print("Wave Out Enabled")
-                        Enable=1
-                    if data == FeedbackButton.B1 or data == FeedbackButton.B2 or data == FeedbackButton.B3 or data == FeedbackButton.B4 or data == FeedbackButton.B5:
-                        print("Wave Out Disabled")
-                        Enable=0
-                        
-
-                try:
-                    
-                    await send()
-                
-                    pulse_data_current = next(pulse_data_iterator, None)   
-            
-                    if(Enable==1):
-                        if not pulse_data_current:
-                            pulse_data_iterator = iter(PULSE_DATA.values())
-                            continue
-                        await client.add_pulses(Channel.A, *(pulse_data_current))
-                    else:
-                        await client.clear_pulses(Channel.A)
-                except :
-                    print("das")
+                await send()
+                pulse_data_current = next(pulse_data_iterator, None)   
+        
+                if(Enable==1):
+                    if not pulse_data_current:
+                        pulse_data_iterator = iter(PULSE_DATA.values())
+                        continue
+                    await client.add_pulses(Channel.A, *(pulse_data_current))
+                else:
+                    await client.clear_pulses(Channel.A)
+            except :
+                print("das")
 
 
 
