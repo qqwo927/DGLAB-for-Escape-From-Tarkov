@@ -7,13 +7,12 @@ if errorlevel 1 (
 
 set BUILD_DIR=build
 set DIST_DIR=dist
-set MAIN_FILE=EFT-DG.py
+set MAIN_FILE=main.py
 set OUTPUT_NAME=EFT-DG
 
 echo ========================================
 echo 开始使用 Nuitka 编译...
 echo ========================================
-echo.
 
 python -m nuitka ^
     --standalone ^
@@ -26,6 +25,7 @@ python -m nuitka ^
     --include-package=PIL ^
     --include-package-data=qrcode ^
     --include-package-data=PIL ^
+    --include-data-file=index.html=index.html ^
     --nofollow-import-to=tkinter ^
     --nofollow-import-to=matplotlib ^
     --nofollow-import-to=scipy ^

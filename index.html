@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网卡选择</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+        
+        select:hover {
+            border-color: #667eea;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .selected-info {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f5f7fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .selected-info h3 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .selected-info p {
+            color: #666;
+            font-size: 13px;
+            margin: 4px 0;
+        }
+        
+        .selected-info strong {
+            color: #667eea;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-size: 14px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .refresh-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .refresh-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+        
+        .start-btn {
+            width: 100%;
+            padding: 12px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .start-btn:hover:not(:disabled) {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .start-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .start-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .status-info {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f0fdf4;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+            display: none;
+        }
+        
+        .status-info.error {
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
+        
+        .status-info h3 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .status-info p {
+            color: #666;
+            font-size: 13px;
+            margin: 4px 0;
+        }
+        
+        .qrcode-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        
+        .qrcode-container h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .qrcode-container img {
+            max-width: 100%;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        
+        .qrcode-url {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f5f7fa;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #666;
+            word-break: break-all;
+        }
+        
+        .game-status-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+            display: none;
+        }
+        
+        .game-status-container h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .status-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status-item-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .status-item-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-item-value.status-game {
+            color: #10b981;
+        }
+        
+        .status-item-value.status-bag {
+            color: #f59e0b;
+        }
+        
+        .status-item-value.status-other {
+            color: #ef4444;
+        }
+        
+        .status-item-value.power {
+            color: #667eea;
+        }
+        
+        .status-item-value.hp {
+            color: #ec4899;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-size: 14px;
+        }
+        
+        .config-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: none;
+        }
+        
+        .config-container h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .config-section {
+            margin-bottom: 25px;
+        }
+        
+        .config-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .config-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .config-item.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .config-item label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .config-item input {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .config-item input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .config-item input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        
+        .config-item input[type="number"]::-webkit-outer-spin-button,
+        .config-item input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .config-save-btn {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .config-save-btn:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .config-save-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .config-toggle-btn {
+            background: transparent;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        
+        .config-toggle-btn:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .save-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            text-align: center;
+            display: none;
+        }
+        
+        .save-status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .save-status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 网卡选择</h1>
+        <p class="subtitle">请选择要使用的网络接口</p>
+        
+        <div class="form-group">
+            <label for="networkSelect">网络接口：</label>
+            <select id="networkSelect">
+                <option value="">加载中...</option>
+            </select>
+            <div class="error" id="errorMsg"></div>
+        </div>
+        
+        <div class="selected-info" id="selectedInfo" style="display: none;">
+            <h3>已选择：</h3>
+            <p><strong>接口名称：</strong><span id="ifaceName">-</span></p>
+            <p><strong>IP 地址：</strong><span id="ipAddress">-</span></p>
+        </div>
+        
+        <button class="start-btn" id="startBtn" onclick="startServer()" disabled>🚀 启动 DGLab 服务器</button>
+        
+        <div class="status-info" id="statusInfo">
+            <h3 id="statusTitle">状态</h3>
+            <p id="statusMessage"></p>
+        </div>
+        
+        <div class="qrcode-container" id="qrcodeContainer">
+            <h3>📱 扫描二维码连接</h3>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">请用DG-Lab App,选择Socket控制 扫描下方二维码 以 绑定连接</p>
+            <img id="qrcodeImage" src="" alt="二维码">
+            <div class="qrcode-url" id="qrcodeUrl"></div>
+        </div>
+        
+        <div class="game-status-container" id="gameStatusContainer">
+            <h3>🎮 游戏状态</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-item-label">当前状态</div>
+                    <div class="status-item-value" id="statusValue">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-item-label">输出强度</div>
+                    <div class="status-item-value power" id="powerValue">0</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-item-label">HP值</div>
+                    <div class="status-item-value hp" id="hpValue">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="config-container" id="configContainer">
+            <h3>
+                ⚙️ 实时配置
+                <button class="config-toggle-btn" onclick="toggleConfig()">收起</button>
+            </h3>
+            
+            <div class="config-section">
+                <div class="config-section-title">基础设置</div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>强度上限 (PowerLimit)</label>
+                        <input type="number" id="configPowerLimit" step="1" min="0" max="200">
+                    </div>
+                    <div class="config-item">
+                        <label>识别频率 (Ratelimit)</label>
+                        <input type="number" id="configRatelimit" step="0.1" min="0.1" max="5">
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>HP低阈值 (HPlow)</label>
+                        <input type="number" id="configHPlow" step="1" min="0" max="500">
+                    </div>
+                    <div class="config-item">
+                        <label>HP高阈值 (HPhigh)</label>
+                        <input type="number" id="configHPhigh" step="1" min="0" max="500">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <div class="config-section-title">波形设置</div>
+                <div class="config-item full-width">
+                    <label>选择波形</label>
+                    <select id="configWaveSelect">
+                        <option value="custom">custom (自定义)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <div class="config-section-title">背包颜色识别</div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>背包颜色最小值 (R)</label>
+                        <input type="number" id="configBagColorMinR" step="1" min="0" max="255">
+                    </div>
+                    <div class="config-item">
+                        <label>背包颜色最小值 (G)</label>
+                        <input type="number" id="configBagColorMinG" step="1" min="0" max="255">
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>背包颜色最小值 (B)</label>
+                        <input type="number" id="configBagColorMinB" step="1" min="0" max="255">
+                    </div>
+                    <div class="config-item">
+                        <label>背包颜色最大值 (R)</label>
+                        <input type="number" id="configBagColorMaxR" step="1" min="0" max="255">
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>背包颜色最大值 (G)</label>
+                        <input type="number" id="configBagColorMaxG" step="1" min="0" max="255">
+                    </div>
+                    <div class="config-item">
+                        <label>背包颜色最大值 (B)</label>
+                        <input type="number" id="configBagColorMaxB" step="1" min="0" max="255">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <div class="config-section-title">角色HSV识别 - 最大值</div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>H最大值 (RoleHmax)</label>
+                        <input type="number" id="configRoleHmax" step="1" min="0" max="360">
+                    </div>
+                    <div class="config-item">
+                        <label>S最大值 (RoleSmax)</label>
+                        <input type="number" id="configRoleSmax" step="0.1" min="0" max="1">
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>V最大值 (RoleVMax)</label>
+                        <input type="number" id="configRoleVMax" step="0.1" min="0" max="1">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <div class="config-section-title">角色HSV识别 - 最小值</div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>H最小值 (RoleHmin)</label>
+                        <input type="number" id="configRoleHmin" step="1" min="0" max="360">
+                    </div>
+                    <div class="config-item">
+                        <label>S最小值 (RoleSmin)</label>
+                        <input type="number" id="configRoleSmin" step="0.1" min="0" max="1">
+                    </div>
+                </div>
+                <div class="config-row">
+                    <div class="config-item">
+                        <label>V最小值 (RoleVMin)</label>
+                        <input type="number" id="configRoleVMin" step="0.1" min="0" max="1">
+                    </div>
+                    <div class="config-item">
+                        <label>温度缓冲率 (tempRate)</label>
+                        <input type="number" id="configTempRate" step="0.1" min="0" max="1">
+                    </div>
+                </div>
+            </div>
+            
+            <button class="config-save-btn" onclick="saveConfig()">💾 保存配置</button>
+            <div class="save-status" id="saveStatus"></div>
+        </div>
+        
+        <button class="refresh-btn" onclick="loadNetworks()">🔄 刷新列表</button>
+        <button class="refresh-btn" onclick="toggleConfig()" style="margin-top: 10px;">⚙️ 配置管理</button>
+    </div>
+    
+    <script>
+        let networks = [];
+        
+        async function loadNetworks() {
+            const select = document.getElementById('networkSelect');
+            const errorMsg = document.getElementById('errorMsg');
+            const selectedInfo = document.getElementById('selectedInfo');
+            
+            // 重置状态
+            errorMsg.style.display = 'none';
+            selectedInfo.style.display = 'none';
+            select.innerHTML = '<option value="">加载中...</option>';
+            select.disabled = true;
+            
+            try {
+                const response = await fetch('/networks');
+                if (!response.ok) {
+                    throw new Error('获取网络列表失败');
+                }
+                
+                networks = await response.json();
+                
+                if (networks.length === 0) {
+                    select.innerHTML = '<option value="">未找到可用网络接口</option>';
+                    return;
+                }
+                
+                // 清空并填充选项
+                select.innerHTML = '<option value="">请选择网络接口</option>';
+                networks.forEach((network, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${network.iface_name} (${network.ip_str})`;
+                    select.appendChild(option);
+                });
+                
+                select.disabled = false;
+            } catch (error) {
+                errorMsg.textContent = '错误：' + error.message;
+                errorMsg.style.display = 'block';
+                select.innerHTML = '<option value="">加载失败</option>';
+            }
+        }
+        
+        function updateSelectedInfo() {
+            const select = document.getElementById('networkSelect');
+            const selectedInfo = document.getElementById('selectedInfo');
+            const ifaceName = document.getElementById('ifaceName');
+            const ipAddress = document.getElementById('ipAddress');
+            const startBtn = document.getElementById('startBtn');
+            
+            const selectedIndex = select.value;
+            
+            if (selectedIndex === '' || !networks[selectedIndex]) {
+                selectedInfo.style.display = 'none';
+                startBtn.disabled = true;
+                return;
+            }
+            
+            const selected = networks[selectedIndex];
+            ifaceName.textContent = selected.iface_name;
+            ipAddress.textContent = selected.ip_str;
+            selectedInfo.style.display = 'block';
+            startBtn.disabled = false;
+        }
+        
+        async function startServer() {
+            const select = document.getElementById('networkSelect');
+            const startBtn = document.getElementById('startBtn');
+            const statusInfo = document.getElementById('statusInfo');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            const selectedIndex = select.value;
+            
+            if (selectedIndex === '' || !networks[selectedIndex]) {
+                statusInfo.className = 'status-info error';
+                statusTitle.textContent = '错误';
+                statusMessage.textContent = '请先选择一个网络接口';
+                statusInfo.style.display = 'block';
+                return;
+            }
+            
+            const selected = networks[selectedIndex];
+            const ipAddress = selected.ip_str;
+            
+            // 禁用按钮并显示加载状态
+            startBtn.disabled = true;
+            startBtn.textContent = '启动中...';
+            statusInfo.style.display = 'none';
+            
+            try {
+                const response = await fetch('/dglab/start-with-ip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ip_address: ipAddress
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'started') {
+                    statusInfo.className = 'status-info';
+                    statusTitle.textContent = '✅ 启动成功';
+                    statusMessage.textContent = result.message;
+                    statusInfo.style.display = 'block';
+                    startBtn.textContent = '🚀 启动 DGLab 服务器';
+                    
+                    // 显示二维码
+                    if (result.qrcode_data) {
+                        const qrcodeContainer = document.getElementById('qrcodeContainer');
+                        const qrcodeImage = document.getElementById('qrcodeImage');
+                        const qrcodeUrl = document.getElementById('qrcodeUrl');
+                        
+                        qrcodeImage.src = result.qrcode_data;
+                        if (result.qrcode_url) {
+                            qrcodeUrl.textContent = '连接地址: ' + result.qrcode_url;
+                        }
+                        qrcodeContainer.style.display = 'block';
+                    }
+                    
+                    // 开始轮询游戏状态
+                    startStatusPolling();
+                    
+                    // 如果配置界面已展开，重新加载配置
+                    if (configExpanded) {
+                        loadConfig();
+                    }
+                } else if (result.status === 'already_running') {
+                    statusInfo.className = 'status-info error';
+                    statusTitle.textContent = '⚠️ 提示';
+                    statusMessage.textContent = result.message;
+                    statusInfo.style.display = 'block';
+                    startBtn.textContent = '🚀 启动 DGLab 服务器';
+                    startBtn.disabled = false;
+                } else {
+                    statusInfo.className = 'status-info error';
+                    statusTitle.textContent = '❌ 启动失败';
+                    statusMessage.textContent = result.message;
+                    statusInfo.style.display = 'block';
+                    startBtn.textContent = '🚀 启动 DGLab 服务器';
+                    startBtn.disabled = false;
+                }
+            } catch (error) {
+                statusInfo.className = 'status-info error';
+                statusTitle.textContent = '❌ 错误';
+                statusMessage.textContent = '启动失败: ' + error.message;
+                statusInfo.style.display = 'block';
+                startBtn.textContent = '🚀 启动 DGLab 服务器';
+                startBtn.disabled = false;
+            }
+        }
+        
+        let statusPollInterval = null;
+        
+        async function updateGameStatus() {
+            try {
+                const response = await fetch('/dglab/game-status');
+                if (!response.ok) {
+                    return;
+                }
+                
+                const data = await response.json();
+                const statusContainer = document.getElementById('gameStatusContainer');
+                const statusValue = document.getElementById('statusValue');
+                const powerValue = document.getElementById('powerValue');
+                const hpValue = document.getElementById('hpValue');
+                const qrcodeContainer = document.getElementById('qrcodeContainer');
+                
+                // 更新状态显示
+                statusValue.textContent = data.status || '未启动';
+                powerValue.textContent = data.power || 0;
+                hpValue.textContent = Math.round(data.hp || 0);
+                
+                // 根据状态设置颜色
+                statusValue.className = 'status-item-value';
+                if (data.status === '游戏中') {
+                    statusValue.classList.add('status-game');
+                } else if (data.status === '在背包') {
+                    statusValue.classList.add('status-bag');
+                } else if (data.status === '未进入游戏' || data.status === '未启动') {
+                    statusValue.classList.add('status-other');
+                }
+                
+                // 如果服务器正在运行，显示状态容器
+                if (data.status && data.status !== '未启动') {
+                    statusContainer.style.display = 'block';
+                }
+                
+                // 根据连接状态和游戏状态决定是否显示二维码
+                // 如果已连接 或 game_status 不等于"未启动"，则隐藏二维码
+                if (data.is_connected || (data.status && data.status !== '未启动')) {
+                    qrcodeContainer.style.display = 'none';
+                } else {
+                    // 只有在未连接且状态为"未启动"时才显示二维码（如果二维码数据存在）
+                    const qrcodeImage = document.getElementById('qrcodeImage');
+                    if (qrcodeImage && qrcodeImage.src) {
+                        qrcodeContainer.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('获取游戏状态失败:', error);
+            }
+        }
+        
+        function startStatusPolling() {
+            // 如果已经有轮询在运行，先清除
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+            }
+            
+            // 立即更新一次
+            updateGameStatus();
+            
+            // 每500ms轮询一次
+            statusPollInterval = setInterval(updateGameStatus, 500);
+        }
+        
+        function stopStatusPolling() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+        }
+        
+        // 配置管理相关函数
+        let configExpanded = false;
+        
+        function toggleConfig() {
+            const configContainer = document.getElementById('configContainer');
+            const toggleBtn = configContainer.querySelector('.config-toggle-btn');
+            
+            if (configExpanded) {
+                configContainer.style.display = 'none';
+                if (toggleBtn) toggleBtn.textContent = '展开';
+            } else {
+                configContainer.style.display = 'block';
+                if (toggleBtn) toggleBtn.textContent = '收起';
+                loadConfig();
+            }
+            configExpanded = !configExpanded;
+        }
+        
+        async function loadWaves() {
+            try {
+                const response = await fetch('/dglab/waves');
+                if (!response.ok) return;
+                const waves = await response.json();
+                const select = document.getElementById('configWaveSelect');
+                
+                // 保留 custom 选项，添加其他
+                select.innerHTML = '<option value="custom">custom (自定义)</option>';
+                
+                waves.forEach(wave => {
+                    if (wave !== 'custom') {
+                        const option = document.createElement('option');
+                        option.value = wave;
+                        option.textContent = wave;
+                        select.appendChild(option);
+                    }
+                });
+            } catch (e) {
+                console.error("加载波形列表失败", e);
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                // 先加载波形列表
+                await loadWaves();
+
+                const response = await fetch('/dglab/config');
+                if (!response.ok) {
+                    throw new Error('获取配置失败');
+                }
+                
+                const config = await response.json();
+                
+                // 填充基础配置
+                document.getElementById('configPowerLimit').value = config.PowerLimit || 60;
+                document.getElementById('configRatelimit').value = config.Ratelimit || 0.4;
+                document.getElementById('configHPlow').value = config.HPlow || 100;
+                document.getElementById('configHPhigh').value = config.HPhigh || 435;
+                
+                // 填充波形选择
+                const waveSelect = document.getElementById('configWaveSelect');
+                if (config.WaveName) {
+                    // 检查是否存在该选项，如果不存在（可能是手动改的），默认选 custom
+                    let exists = false;
+                    for(let i=0; i<waveSelect.options.length; i++) {
+                        if (waveSelect.options[i].value === config.WaveName) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    waveSelect.value = exists ? config.WaveName : 'custom';
+                }
+
+                // 填充背包颜色配置
+                if (config.BagColorMin && config.BagColorMin.length >= 3) {
+                    document.getElementById('configBagColorMinR').value = config.BagColorMin[0];
+                    document.getElementById('configBagColorMinG').value = config.BagColorMin[1];
+                    document.getElementById('configBagColorMinB').value = config.BagColorMin[2];
+                }
+                if (config.BagColorMax && config.BagColorMax.length >= 3) {
+                    document.getElementById('configBagColorMaxR').value = config.BagColorMax[0];
+                    document.getElementById('configBagColorMaxG').value = config.BagColorMax[1];
+                    document.getElementById('configBagColorMaxB').value = config.BagColorMax[2];
+                }
+                
+                // 填充角色HSV最大值配置
+                document.getElementById('configRoleHmax').value = config.RoleHmax || 130;
+                document.getElementById('configRoleSmax').value = config.RoleSmax || 1;
+                document.getElementById('configRoleVMax').value = config.RoleVMax || 0.6;
+                
+                // 填充角色HSV最小值配置
+                document.getElementById('configRoleHmin').value = config.RoleHmin || 0;
+                document.getElementById('configRoleSmin').value = config.RoleSmin || 0.4;
+                document.getElementById('configRoleVMin').value = config.RoleVMin || 0.1;
+                
+                // 填充温度缓冲率
+                document.getElementById('configTempRate').value = config.tempRate || 0.3;
+                
+            } catch (error) {
+                console.error('加载配置失败:', error);
+                showSaveStatus('加载配置失败: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveConfig() {
+            const saveBtn = document.querySelector('.config-save-btn');
+            const saveStatus = document.getElementById('saveStatus');
+            
+            // 禁用按钮
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+            saveStatus.style.display = 'none';
+            
+            try {
+                // 收集配置数据
+                const configData = {
+                    PowerLimit: parseFloat(document.getElementById('configPowerLimit').value),
+                    Ratelimit: parseFloat(document.getElementById('configRatelimit').value),
+                    HPlow: parseFloat(document.getElementById('configHPlow').value),
+                    HPhigh: parseFloat(document.getElementById('configHPhigh').value),
+                    WaveName: document.getElementById('configWaveSelect').value,
+                    BagColorMin: [
+                        parseInt(document.getElementById('configBagColorMinR').value),
+                        parseInt(document.getElementById('configBagColorMinG').value),
+                        parseInt(document.getElementById('configBagColorMinB').value)
+                    ],
+                    BagColorMax: [
+                        parseInt(document.getElementById('configBagColorMaxR').value),
+                        parseInt(document.getElementById('configBagColorMaxG').value),
+                        parseInt(document.getElementById('configBagColorMaxB').value)
+                    ],
+                    RoleHmax: parseFloat(document.getElementById('configRoleHmax').value),
+                    RoleSmax: parseFloat(document.getElementById('configRoleSmax').value),
+                    RoleVMax: parseFloat(document.getElementById('configRoleVMax').value),
+                    RoleHmin: parseFloat(document.getElementById('configRoleHmin').value),
+                    RoleSmin: parseFloat(document.getElementById('configRoleSmin').value),
+                    RoleVMin: parseFloat(document.getElementById('configRoleVMin').value),
+                    tempRate: parseFloat(document.getElementById('configTempRate').value)
+                };
+                
+                // 发送更新请求
+                const response = await fetch('/dglab/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(configData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showSaveStatus('✅ 配置已保存并实时生效', 'success');
+                } else {
+                    showSaveStatus('❌ 保存失败: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                showSaveStatus('❌ 保存失败: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 保存配置';
+            }
+        }
+        
+        function showSaveStatus(message, type) {
+            const saveStatus = document.getElementById('saveStatus');
+            saveStatus.textContent = message;
+            saveStatus.className = 'save-status ' + type;
+            saveStatus.style.display = 'block';
+            
+            // 3秒后自动隐藏成功消息
+            if (type === 'success') {
+                setTimeout(() => {
+                    saveStatus.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        // 页面加载时获取网络列表
+        document.addEventListener('DOMContentLoaded', loadNetworks);
+        
+        // 监听选择变化
+        document.getElementById('networkSelect').addEventListener('change', updateSelectedInfo);
+    </script>
+</body>
+</html>

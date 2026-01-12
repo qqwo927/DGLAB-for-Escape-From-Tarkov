@@ -3,3 +3,5 @@
 venv
 config.ini
 dist
+build
+__pycache__
