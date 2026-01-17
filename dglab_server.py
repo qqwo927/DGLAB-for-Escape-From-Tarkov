@@ -5,19 +5,17 @@ import io
 import random
 import socket
 from pathlib import Path
-from typing import Union, Optional
 
 import psutil
 import qrcode
-import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from pydglab_ws import DGLabWSServer, FeedbackButton, Channel, StrengthOperationType
+from pydglab_ws import DGLabWSServer, Channel, StrengthOperationType
 
 from config import ConfigManager
 from game_monitor import GameMonitor
-from models import GameState, AppConfig
+from models import GameState
 import pulses
 
 class WebConfigData(BaseModel):
@@ -49,6 +47,7 @@ class DGLabApp:
         # 服务器状态
         self.dglab_server_task = None
         self.dglab_server_running = False
+        self.game_detection_task = None
         
         # 二维码相关
         self.qrcode_data = None
@@ -247,6 +246,10 @@ class DGLabApp:
         if not self.dglab_server_running:
             return False
         try:
+            if self.game_detection_task and not self.game_detection_task.done():
+                self.game_detection_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.game_detection_task
             if self.dglab_server_task and not self.dglab_server_task.done():
                 self.dglab_server_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -290,40 +293,17 @@ class DGLabApp:
             self.cfg.gamestate = state
         else:
             self.cfg.gamestate2 = state
-            
-        # 决定是否发送强度
-        # 原代码逻辑翻译：
-        # 只要任意一个是 Game，或者两者一致，就发送强度？
-        # 原代码复杂的 IF:
-        # if (s1=="game" and s2=="game") or (s2!="other" and s1!="game") or ...
-        # 简化逻辑：如果是 Game 或 Bag，就应用强度；否则归零
-        
-        should_apply_strength = False
+
         target_power = 0
-        
-        # 这里的判定逻辑尽量模仿原代码的复杂性，以保持行为一致
-        # 原代码：
-        # if (g1=="game" and g2=="game") or 
-        #    (g2!="other" and g1!="game") or 
-        #    (g2!="game" and g1!="other") or ...
-        # 仔细看原代码：
-        # if ... : self.cfg.power = lg (or power) ... set_strength(lg)
-        # else: ... set_strength(self.cfg.power)
-        
-        # 实际上，如果检测到 Game (state == GAME)，power 就是计算出的 lg
-        # 如果检测到 Bag (state == BAG)，power 保持原样 (self.cfg.power)
-        # 如果检测到 Other，power = 0
         
         if state == GameState.GAME:
             self.cfg.power = power
             target_power = power
             self.game_status = GameState.DISPLAY_GAME
-            should_apply_strength = True
         elif state == GameState.BAG:
             # 保持 power 不变
             target_power = self.cfg.power
             self.game_status = GameState.DISPLAY_BAG
-            should_apply_strength = True
         else: # OTHER
             # 这里的逻辑有点微妙。原代码在 iteration 1 和 2 的处理略有不同
             # 如果是 Other，原代码会设为 0
@@ -369,6 +349,18 @@ class DGLabApp:
         except Exception as e:
             print(f"Send loop error: {e}")
 
+    async def _game_detection_loop(self):
+        while True:
+            try:
+                await self.send()
+            except asyncio.CancelledError:
+                print("游戏检测循环已取消")
+                raise
+            except Exception as e:
+                print(f"游戏检测循环错误: {e}")
+                # 发生错误时稍作等待，避免快速重试导致资源浪费
+                await asyncio.sleep(0.1)
+
     async def start_server(self, ip_address: str = None):
         """WebSocket 服务器主循环"""
         if ip_address:
@@ -395,35 +387,33 @@ class DGLabApp:
             self.is_connected = True
             print(f"已与 APP {self.cfg.client.target_id} 成功绑定")
             
-            # 波形数据迭代器
+            self.game_detection_task = asyncio.create_task(self._game_detection_loop())
+            
             pulse_data_iterator = iter(self.cfg.PULSE_DATA.values())
             
-            # 主循环：处理 App 发来的消息，并执行游戏检测
-            async for data in self.cfg.client.data_generator():
-                # 处理按钮反馈
-                if isinstance(data, FeedbackButton):
-                    if data in [FeedbackButton.A1, FeedbackButton.A2, FeedbackButton.A3, FeedbackButton.A4, FeedbackButton.A5]:
-                        print("波形输出已启用")
-                        self.cfg.Enable = 1
-                    elif data in [FeedbackButton.B1, FeedbackButton.B2, FeedbackButton.B3, FeedbackButton.B4, FeedbackButton.B5]:
-                        print("波形输出已关闭")
-                        self.cfg.Enable = 0
-                
+
+            async for _ in self.cfg.client.data_generator():
                 try:
-                    # 执行检测周期
-                    await self.send()
-                    
                     # 发送波形 (如果启用)
                     pulse_data_current = next(pulse_data_iterator, None)
                     if not pulse_data_current:
                         # 循环波形
                         pulse_data_iterator = iter(self.cfg.PULSE_DATA.values())
-                        continue
-                    await self.cfg.client.add_pulses(Channel.A, *(pulse_data_current))
-                    await self.cfg.client.add_pulses(Channel.B, *(pulse_data_current))
+                        pulse_data_current = next(pulse_data_iterator, None)
+                    
+                    if pulse_data_current:
+                        await self.cfg.client.clear_pulses(Channel.A)
+                        await self.cfg.client.clear_pulses(Channel.B)
+                        await self.cfg.client.add_pulses(Channel.A, *(pulse_data_current))
+                        await self.cfg.client.add_pulses(Channel.B, *(pulse_data_current))
                     
                     # 不加sleep 不知道为什么过一段时间就会停止发送波形,反正加了就没事了
                     await asyncio.sleep(0.01)
                         
                 except Exception as e:
                     print(f"Error in main loop: {e}")
+            
+            if self.game_detection_task and not self.game_detection_task.done():
+                self.game_detection_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.game_detection_task
