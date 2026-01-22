@@ -1,6 +1,6 @@
 
 # 有问题加群反馈,临时写的小玩具,issue不一定看
-# 血量算法是 [Bilibili: 是扒一扒喵](https://space.bilibili.com/25330120) 写的
+# 血量算法是 [Bilibili: 是扒一扒喵](https://space.bilibili.com/576103816) 写的
 # 前端代码全是AI写的!
 
 #####################################
